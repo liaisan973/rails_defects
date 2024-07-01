@@ -5,8 +5,31 @@ from concurrent.futures import ProcessPoolExecutor, as_completed
 import os
 import glob
 
+from sahi.utils.yolov5 import (
+    download_yolov5s6_model,
+)
+import yolov5
 
-def process_image(image_path, output_dir):
+# import required functions, classes
+from sahi import AutoDetectionModel
+from sahi.utils.cv import read_image
+from sahi.utils.file import download_from_url
+from sahi.predict import get_prediction, get_sliced_prediction, predict
+from IPython.display import Image
+
+yolov5_model_path = 'yolov5/runs/train/exp/weights/best.pt'
+download_yolov5s6_model(destination_path=yolov5_model_path)
+
+detection_model = AutoDetectionModel.from_pretrained(
+    model_type='yolov5_custom',
+    model_path=yolov5_model_path,
+    confidence_threshold=0.3,
+    device="cpu", # or 'cuda:0'
+)
+
+
+def process_image(image_path):
+    start_time = time.time()
     # Read the input image
     image = cv2.imread(image_path)
 
@@ -14,10 +37,10 @@ def process_image(image_path, output_dir):
     hsv = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
 
     # Define the points for the mask
-    start_point1 = (197, 69)
-    end_point1 = (174, 415)
-    start_point2 = (199, 69)
-    end_point2 = (220, 415)
+    start_point1 = (0, 186)
+    end_point1 = (415, 128)
+    start_point2 = (0, 218)
+    end_point2 = (415, 196)
 
     # Create the mask
     mask = np.zeros_like(hsv)
@@ -66,37 +89,51 @@ def process_image(image_path, output_dir):
         num_defects > threshold_num_defects or
         max_defect_area > threshold_max_defect_area or
         average_defect_area > threshold_average_defect_area):
-        result = "This image has significant defects!"
+        print("This image has significant defects!")
+
+        result_sahi = get_sliced_prediction(image_path, detection_model,
+            slice_height=256,
+            slice_width=256,
+            overlap_height_ratio=0.2,
+            overlap_width_ratio=0.2
+        )
+        result_sahi.export_visuals(export_dir="demo_data/")
+
+        Image("demo_data/prediction_visual1.png")
+
+
     else:
-        result = "This image has few defects."
-
-    # Save the resulting images
-    base_filename = os.path.splitext(os.path.basename(image_path))[0]
-    cv2.imwrite(os.path.join(output_dir, f'{base_filename}_mask.png'), dark_mask)
-    cv2.imwrite(os.path.join(output_dir, f'{base_filename}_original.png'), image)
-    cv2.imwrite(os.path.join(output_dir, f'{base_filename}_opening.png'), opening)
-    cv2.imwrite(os.path.join(output_dir, f'{base_filename}_detected.png'), detected)
-
-    return (image_path, result)
-
-def main(image_paths, output_dir):
-    start_time = time.time()
-
-    with ProcessPoolExecutor() as executor:
-        futures = [executor.submit(process_image, image_path, output_dir) for image_path in image_paths]
-
-        for future in as_completed(futures):
-            image_path, result = future.result()
-            print(f"Processed {image_path}: {result}")
+        print("This image has few defects.")
 
     print(f"Processing completed in {time.time() - start_time} seconds")
 
+
+    # Save the resulting images
+    # base_filename = os.path.splitext(os.path.basename(image_path))[0]
+    # cv2.imwrite(os.path.join(output_dir, f'{base_filename}_mask.png'), dark_mask)
+    # cv2.imwrite(os.path.join(output_dir, f'{base_filename}_original.png'), image)
+    # cv2.imwrite(os.path.join(output_dir, f'{base_filename}_opening.png'), opening)
+    # cv2.imwrite(os.path.join(output_dir, f'{base_filename}_detected.png'), detected)
+
+    # return (image_path, result_sahi)
+
+# def main(image_paths, output_dir):
+#     start_time = time.time()
+#
+#     with ProcessPoolExecutor() as executor:
+#         futures = [executor.submit(process_image, image_path, output_dir) for image_path in image_paths]
+#
+#         for future in as_completed(futures):
+#             image_path, result = future.result()
+#             print(f"Processed {image_path}: {result}")
+#
+#     print(f"Processing completed in {time.time() - start_time} seconds")
+
+
 if __name__ == "__main__":
-    image_paths = [
-        'DSC04371.JPG'
-    ]
-    output_dir = 'output'
-    main(image_paths, output_dir)
+
+    # output_dir = 'output'
+    process_image("yolov5/rails_defects-4/test/images/050_Spalling_Train_png.rf.cc7b8a1b2cb9e552f46e27944e20bc36.jpg")
 
 
 #images = [cv2.imread(file) for file in glob.glob("path/to/files/*.png")]
