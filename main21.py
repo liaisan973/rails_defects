@@ -37,17 +37,22 @@ def process_image(image_path):
     hsv = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
 
     # Define the points for the mask
-    start_point1 = (0, 186)
-    end_point1 = (415, 128)
-    start_point2 = (0, 218)
-    end_point2 = (415, 196)
+    start_point1 = (0, 872)
+    end_point1 = (4000, 866)
+
+    start_point2 = (0, 1854)
+    end_point2 = (4000, 1873)
 
     # Create the mask
     mask = np.zeros_like(hsv)
+    mask2 = np.zeros_like(image)
     cv2.fillPoly(mask, [np.array([start_point1, end_point1, end_point2, start_point2], dtype=np.int32)], 255)
+    cv2.fillPoly(mask2, [np.array([start_point1, end_point1, end_point2, start_point2], dtype=np.int32)], 255)
+
 
     # Apply the mask to the image
     defected_area = cv2.bitwise_and(hsv, mask)
+    defected_area2 = cv2.bitwise_and(image, mask2)
 
     # Thresholding to find dark areas
     lower_threshold = 0  # Lower threshold for dark pixels
@@ -91,7 +96,7 @@ def process_image(image_path):
         average_defect_area > threshold_average_defect_area):
         print("This image has significant defects!")
 
-        result_sahi = get_sliced_prediction(image_path, detection_model,
+        result_sahi = get_sliced_prediction(defected_area2, detection_model,
             slice_height=256,
             slice_width=256,
             overlap_height_ratio=0.2,
@@ -133,7 +138,7 @@ def process_image(image_path):
 if __name__ == "__main__":
 
     # output_dir = 'output'
-    process_image("yolov5/rails_defects-4/test/images/050_Spalling_Train_png.rf.cc7b8a1b2cb9e552f46e27944e20bc36.jpg")
+    process_image("IMG_20201114_100215.jpg")
 
 
 #images = [cv2.imread(file) for file in glob.glob("path/to/files/*.png")]
